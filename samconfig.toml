@@ -1,0 +1,45 @@
+# More information about the configuration file can be found here:
+# https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-config.html
+version = 0.1
+
+[default]
+[default.global.parameters]
+stack_name = "sam-app"
+
+[default.build.parameters]
+parallel = true
+
+[default.validate.parameters]
+lint = true
+
+[default.deploy.parameters]
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+confirm_changeset = true
+resolve_s3 = true
+resolve_image_repos = true
+s3_prefix = "done"
+region = "ap-southeast-2"
+parameter_overrides = "TextAnalysisQueueName=\"\" BucketPrefix=\"text-analysis17\""
+stack_name = "done"
+disable_rollback = true
+
+[default.package.parameters]
+resolve_s3 = true
+
+[default.sync.parameters]
+watch = true
+
+[default.local_start_api.parameters]
+warm_containers = "EAGER"
+
+[default.local_start_lambda.parameters]
+warm_containers = "EAGER"
+
+[y.deploy.parameters]
+stack_name = "YourStackName1"
+resolve_s3 = true
+s3_prefix = "YourStackName1"
+resolve_image_repos = true
+region = "ap-southeast-2"
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+parameter_overrides = "QueueName=\"MyQueue\" FunctionName=\"MyLambdaFunction\""

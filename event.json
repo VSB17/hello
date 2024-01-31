@@ -1,0 +1,12 @@
+{
+    "id": 12345,
+    "name": "John Doe",
+    "age": 28,
+    "city": "Randomville",
+    "isStudent": false,
+    "grades": [85, 92, 78],
+    "address": {
+      "street": "123 Main Street",
+      "zipCode": "98765",
+      "country": "Wonder
+  

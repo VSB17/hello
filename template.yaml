@@ -1,0 +1,119 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Transform: 'AWS::Serverless-2016-10-31'
+
+Parameters:
+  TextAnalysisQueueName:
+    Type: String
+    Description: Name of the SQS queue for text analysis
+
+  BucketPrefix:
+    Type: String
+    Description: Prefix for the S3 bucket name
+    Default: Ecs-123SS # Set your default prefix here
+
+Resources:
+  TextAnalysisQueue:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: !Ref TextAnalysisQueueName
+
+  TextAnalysisBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub '${BucketPrefix}-${AWS::AccountId}'
+
+  TextAnalysisFunctionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: TextAnalysisFunctionRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaBasicExecutionPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - sqs:SendMessage
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                  - comprehend:DetectSentiment
+                  - s3:GetObject
+                Resource:
+                  - 'arn:aws:logs:*:*:*'
+                  - !GetAtt TextAnalysisQueue.Arn
+                  - !Sub '${TextAnalysisBucket.Arn}/*'
+
+              - Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                Resource: "arn:aws:iam::127404880677:role/TextAnalysisFunctionRole"
+                Condition:
+                  StringEquals:
+                    aws:PrincipalService: "apigateway.amazonaws.com"
+
+  TextAnalysisFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      FunctionName: TextAnalysisFunction
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.12
+      CodeUri: /Users/ecsmac1/sam-app/  # Use forward slashes
+      Environment:
+        Variables:
+          COMPREHEND_API_KEY: JEclNqg86w9W3mXVDbFxN7lLKMTEiWTKaQrsNebE
+          COMPREHEND_API_REGION: ap-southeast-2
+      Role: !GetAtt TextAnalysisFunctionRole.Arn
+
+  MySqsQueueEventSourceMapping:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      EventSourceArn: !GetAtt TextAnalysisQueue.Arn
+      FunctionName: !GetAtt TextAnalysisFunction.Arn
+      BatchSize: 5
+      Enabled: true
+
+  TextAnalysisApi:
+    Type: 'AWS::Serverless::Api'
+    Properties:
+      StageName: Prod
+      DefinitionBody:
+        swagger: '2.0'
+        info:
+          title: 'TextAnalysisApi'
+          version: '1.0'
+        paths:
+          /text-analysis-endpoint:
+            post:
+              responses:
+                '200':
+                  description: 'Successful response'
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:sqs:path/${AWS::AccountId}/${TextAnalysisQueueName}"
+                integrationHttpMethod: POST
+                requestParameters:
+                  integration.request.header.Content-Type: "'application/json'"
+                passthroughBehavior: NEVER
+                contentHandling: CONVERT_TO_TEXT
+                credentials: !GetAtt TextAnalysisFunctionRole.Arn
